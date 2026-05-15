@@ -155,6 +155,7 @@ venv.bak/
 
 # Firebase credentials (NEVER commit service account keys)
 *-adminsdk-*.json
+fhtw-soe-ad96b7577ca1.json
 
 # Spyder project settings
 .spyderproject
