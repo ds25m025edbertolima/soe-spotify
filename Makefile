@@ -39,7 +39,20 @@ format:
 	ruff check --fix
 	ruff format
 
+## Run ETL pipeline (extract, transform, load to Firebase)
+.PHONY: etl
+etl:
+	$(PYTHON_INTERPRETER) -m soe_spotify.main
 
+## Run ETL pipeline without loading to Firebase (for testing)
+.PHONY: etl-dry-run
+etl-dry-run:
+	$(PYTHON_INTERPRETER) -m soe_spotify.main --no-firebase
+
+## Run ETL pipeline without deleting existing Firestore data
+.PHONY: etl-append
+etl-append:
+	$(PYTHON_INTERPRETER) -m soe_spotify.main --skip-delete
 
 
 

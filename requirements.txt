@@ -9,4 +9,10 @@ pip
 python-dotenv
 ruff
 scikit-learn
+pyspark
+seaborn
+pyarrow
+sklearn
+yellowbrick
+firebase-admin
 -e .
