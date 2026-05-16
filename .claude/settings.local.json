@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m 'Fix database.py for Pandas DataFrames and update .env with local PostgreSQL *)",
+      "Bash(git commit -m 'Fix database.py for Pandas DataFrames and remove Spark references *)"
+    ]
+  }
+}

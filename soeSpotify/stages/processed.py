@@ -125,11 +125,17 @@ class ProcessedStage:
             }
         ).copy()
 
-        # Keep only needed columns
-        cols = ["track_id", "track_name", "album_id", "artists_id", "popularity",
-                "duration_ms", "explicit", "country", "playlist", "uri",
-                "preview_url", "analysis_url", "href", "track_href",
-                "available_markets"]
+        # Keep track metadata + Spotify audio features
+        cols = [
+            "track_id", "track_name", "album_id", "artists_id", "popularity",
+            "duration_ms", "explicit", "country", "playlist", "uri",
+            "preview_url", "analysis_url", "href", "track_href",
+            "available_markets",
+            # Spotify audio features (high-level)
+            "acousticness", "danceability", "energy", "instrumentalness",
+            "key", "liveness", "loudness", "mode", "speechiness", "tempo",
+            "time_signature", "valence",
+        ]
         df = df[[c for c in cols if c in df.columns]]
 
         # Remove nulls in primary key

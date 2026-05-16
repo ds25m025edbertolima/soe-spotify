@@ -45,6 +45,14 @@ PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME -c "SELECT 1;"
     echo "Database is ready!" || \
     echo "Warning: Could not verify database connection"
 
+echo "Applying initial database migrations..."
+if [ -f "supabase/migrations/20260516000000_init_schema.sql" ]; then
+    PGPASSWORD=$DB_PASSWORD psql -h localhost -U $DB_USER -d $DB_NAME -f "supabase/migrations/20260516000000_init_schema.sql" > /dev/null
+    echo "Migrations applied successfully."
+else
+    echo "Warning: Migration file not found."
+fi
+
 echo ""
 echo "Database setup complete!"
 echo "Connection string: postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"

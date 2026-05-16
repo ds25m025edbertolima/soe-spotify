@@ -183,22 +183,42 @@ class AnalyticsStage:
         return df
 
     def build_analytics_track_features(
-        self, tracks: pd.DataFrame
+        self, tracks: pd.DataFrame, features: pd.DataFrame
     ) -> pd.DataFrame:
-        """Create feature matrix for ML models."""
+        """Create feature table with audio + lyrics features for database."""
         logger.info("Building analytics track features table...")
 
-        # Select feature columns
-        feature_cols = [
-            "track_id", "artist_name", "album_name", "acousticness",
-            "danceability", "energy", "instrumentalness", "key", "liveness",
-            "loudness", "mode", "speechiness", "tempo", "time_signature",
-            "valence", "track_popularity", "duration_ms", "mean_syllables_word",
-            "mean_words_sentence", "n_sentences", "n_words",
-            "sentence_similarity", "vocabulary_wealth",
+        # Get high-level Spotify audio features from processed tracks
+        spotify_features = [
+            "track_id", "acousticness", "danceability", "energy",
+            "instrumentalness", "key", "liveness", "loudness", "mode",
+            "speechiness", "tempo", "time_signature", "valence",
         ]
+        audio_cols = [c for c in spotify_features if c in tracks.columns]
 
-        df = tracks[[c for c in feature_cols if c in tracks.columns]].copy()
+        # Get lyrics features from the features dataframe
+        lyrics_features = [
+            "mean_syllables_word", "mean_words_sentence", "n_sentences",
+            "n_words", "sentence_similarity", "vocabulary_wealth",
+        ]
+        lyrics_cols = [c for c in lyrics_features if c in features.columns]
+
+        # Start with high-level audio features from tracks
+        df_audio = tracks[audio_cols].copy()
+        df_audio = df_audio.drop_duplicates(subset=["track_id"])
+
+        # Merge with lyrics features
+        if lyrics_cols:
+            df_lyrics = features[["track_id"] + lyrics_cols].copy()
+            df_lyrics = df_lyrics.drop_duplicates(subset=["track_id"])
+            df = df_audio.merge(df_lyrics, on="track_id", how="left")
+        else:
+            df = df_audio
+
+        df = df.fillna(0)
+
+        logger.info(f"Analytics features: {len(df)} rows, {len(df.columns)} "
+                    "columns")
 
         return df
 
@@ -234,7 +254,9 @@ class AnalyticsStage:
         logger.info(f"Saving {len(analytics_genres)} analytics genres")
         analytics_genres.to_parquet(ANALYTICS_GENRES, engine="pyarrow", index=False)
 
-        analytics_features = self.build_analytics_track_features(analytics_tracks)
+        analytics_features = self.build_analytics_track_features(
+            analytics_tracks, features
+        )
         logger.info(f"Saving {len(analytics_features)} feature records")
         analytics_features.to_parquet(
             ANALYTICS_TRACK_FEATURES, engine="pyarrow", index=False
