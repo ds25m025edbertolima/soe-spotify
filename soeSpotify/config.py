@@ -7,8 +7,8 @@ DATA_ROOT = PROJECT_ROOT / "data"
 
 # Raw data sources (CSV files - immutable)
 DATA_RAW = DATA_ROOT / "raw"
-DATA_RAW_SOURCES = DATA_RAW / "Data Sources"
-DATA_RAW_FEATURES = DATA_RAW / "Features Extracted"
+DATA_RAW_SOURCES = DATA_RAW / "SpotGenTrack" / "Data Sources"
+DATA_RAW_FEATURES = DATA_RAW / "SpotGenTrack" / "Features Extracted"
 
 CSV_ALBUMS = DATA_RAW_SOURCES / "spotify_albums.csv"
 CSV_ARTISTS = DATA_RAW_SOURCES / "spotify_artists.csv"
