@@ -1,7 +1,7 @@
 import logging
 
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.functions import col, isnan, isnull, when
+import pandas as pd
+import numpy as np
 
 from ..config import (
     RAW_TRACKS,
@@ -22,105 +22,123 @@ logger = logging.getLogger(__name__)
 class ProcessedStage:
     """Clean, validate, and deduplicate raw data."""
 
-    def __init__(self, spark: SparkSession) -> None:
-        self.spark = spark
+    def __init__(self) -> None:
         DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
         logger.info(f"Processed stage directory ready: {DATA_PROCESSED}")
 
-    def _clean_nulls_and_nans(self, df: DataFrame) -> DataFrame:
+    @staticmethod
+    def _clean_nulls_and_nans(df: pd.DataFrame) -> pd.DataFrame:
         """Replace NaN with None for consistent null handling."""
-        return df.select(
-            [
-                when(isnan(col(c)), None).otherwise(col(c)).alias(c)
-                if c in [t[0] for t in df.dtypes if t[1].startswith("double")]
-                else col(c)
-                for c in df.columns
-            ]
-        )
+        # Replace NaN with None in numeric columns
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col] = df[col].replace({np.nan: None})
+        return df
 
-    def process_artists(self, raw_artists: DataFrame) -> DataFrame:
+    def process_artists(self, raw_artists: pd.DataFrame) -> pd.DataFrame:
         """Clean and validate artists data."""
         logger.info("Processing artists...")
 
-        df = raw_artists.select(
-            col("id").alias("artist_id"),
-            col("name").alias("artist_name"),
-            col("artist_popularity").alias("artist_popularity"),
-            col("followers"),
-            col("genres"),
-            col("type"),
-        )
+        df = raw_artists.rename(
+            columns={
+                "id": "artist_id",
+                "name": "artist_name",
+                "artist_popularity": "artist_popularity",
+                "followers": "followers",
+                "genres": "genres",
+                "type": "type",
+            }
+        ).copy()
+
+        # Keep only needed columns
+        df = df[["artist_id", "artist_name", "artist_popularity", "followers",
+                 "genres", "type"]]
 
         # Remove nulls in primary key
-        df = df.filter(col("artist_id").isNotNull())
-        logger.info(f"Removed null artist_ids, {df.count()} artists remaining")
+        df = df.dropna(subset=["artist_id"])
+        logger.info(f"Removed null artist_ids, {len(df)} artists remaining")
 
         # Remove duplicates
-        df = df.dropDuplicates(["artist_id"])
-        logger.info(f"Removed duplicates, {df.count()} unique artists")
+        df = df.drop_duplicates(subset=["artist_id"])
+        logger.info(f"Removed duplicates, {len(df)} unique artists")
 
         # Clean nulls/NaNs
         df = self._clean_nulls_and_nans(df)
 
         return df
 
-    def process_albums(self, raw_albums: DataFrame) -> DataFrame:
+    def process_albums(self, raw_albums: pd.DataFrame) -> pd.DataFrame:
         """Clean and validate albums data."""
         logger.info("Processing albums...")
 
-        df = raw_albums.select(
-            col("id").alias("album_id"),
-            col("name").alias("album_name"),
-            col("album_type"),
-            col("artist_id"),
-            col("release_date"),
-            col("release_date_precision"),
-            col("total_tracks"),
-            col("uri"),
-        )
+        df = raw_albums.rename(
+            columns={
+                "id": "album_id",
+                "name": "album_name",
+                "album_type": "album_type",
+                "artist_id": "artist_id",
+                "release_date": "release_date",
+                "release_date_precision": "release_date_precision",
+                "total_tracks": "total_tracks",
+                "uri": "uri",
+            }
+        ).copy()
+
+        # Keep only needed columns
+        df = df[["album_id", "album_name", "album_type", "artist_id",
+                 "release_date", "release_date_precision", "total_tracks", "uri"]]
 
         # Remove nulls in primary key
-        df = df.filter(col("album_id").isNotNull())
-        logger.info(f"Removed null album_ids, {df.count()} albums remaining")
+        df = df.dropna(subset=["album_id"])
+        logger.info(f"Removed null album_ids, {len(df)} albums remaining")
 
         # Remove duplicates
-        df = df.dropDuplicates(["album_id"])
-        logger.info(f"Removed duplicates, {df.count()} unique albums")
+        df = df.drop_duplicates(subset=["album_id"])
+        logger.info(f"Removed duplicates, {len(df)} unique albums")
 
         # Clean nulls/NaNs
         df = self._clean_nulls_and_nans(df)
 
         return df
 
-    def process_tracks(self, raw_tracks: DataFrame) -> DataFrame:
+    def process_tracks(self, raw_tracks: pd.DataFrame) -> pd.DataFrame:
         """Clean and validate tracks data."""
         logger.info("Processing tracks...")
 
-        df = raw_tracks.select(
-            col("id").alias("track_id"),
-            col("name").alias("track_name"),
-            col("album_id"),
-            col("artists_id"),
-            col("popularity"),
-            col("duration_ms"),
-            col("explicit"),
-            col("country"),
-            col("playlist"),
-            col("uri"),
-            col("preview_url"),
-            col("analysis_url"),
-            col("href"),
-            col("track_href"),
-            col("available_markets"),
-        )
+        df = raw_tracks.rename(
+            columns={
+                "id": "track_id",
+                "name": "track_name",
+                "album_id": "album_id",
+                "artists_id": "artists_id",
+                "popularity": "popularity",
+                "duration_ms": "duration_ms",
+                "explicit": "explicit",
+                "country": "country",
+                "playlist": "playlist",
+                "uri": "uri",
+                "preview_url": "preview_url",
+                "analysis_url": "analysis_url",
+                "href": "href",
+                "track_href": "track_href",
+                "available_markets": "available_markets",
+            }
+        ).copy()
+
+        # Keep only needed columns
+        cols = ["track_id", "track_name", "album_id", "artists_id", "popularity",
+                "duration_ms", "explicit", "country", "playlist", "uri",
+                "preview_url", "analysis_url", "href", "track_href",
+                "available_markets"]
+        df = df[[c for c in cols if c in df.columns]]
 
         # Remove nulls in primary key
-        df = df.filter(col("track_id").isNotNull())
-        logger.info(f"Removed null track_ids, {df.count()} tracks remaining")
+        df = df.dropna(subset=["track_id"])
+        logger.info(f"Removed null track_ids, {len(df)} tracks remaining")
 
         # Remove duplicates
-        df = df.dropDuplicates(["track_id"])
-        logger.info(f"Removed duplicates, {df.count()} unique tracks")
+        df = df.drop_duplicates(subset=["track_id"])
+        logger.info(f"Removed duplicates, {len(df)} unique tracks")
 
         # Clean nulls/NaNs
         df = self._clean_nulls_and_nans(df)
@@ -129,74 +147,64 @@ class ProcessedStage:
 
     def process_track_features(
         self,
-        raw_audio: DataFrame,
-        raw_lyrics: DataFrame,
-    ) -> DataFrame:
+        raw_audio: pd.DataFrame,
+        raw_lyrics: pd.DataFrame,
+    ) -> pd.DataFrame:
         """Combine and validate audio + lyrics features."""
         logger.info("Processing track features...")
 
         # Clean audio features
-        audio = raw_audio.select(
-            col("track_id"),
-            *[
-                col(c)
-                for c in raw_audio.columns
-                if c not in ["track_id", "Unnamed: 0"]
-            ],
-        )
-        audio = audio.filter(col("track_id").isNotNull())
+        audio = raw_audio.copy()
+        # Drop unnamed/index columns
+        audio = audio.loc[:, ~audio.columns.str.contains("^Unnamed")]
+        audio = audio.dropna(subset=["track_id"])
         audio = self._clean_nulls_and_nans(audio)
 
         # Clean lyrics features
-        lyrics = raw_lyrics.select(
-            col("track_id"),
-            col("mean_syllables_word"),
-            col("mean_words_sentence"),
-            col("n_sentences"),
-            col("n_words"),
-            col("sentence_similarity"),
-            col("vocabulary_wealth"),
-        )
-        lyrics = lyrics.filter(col("track_id").isNotNull())
+        lyrics = raw_lyrics[[
+            "track_id", "mean_syllables_word", "mean_words_sentence",
+            "n_sentences", "n_words", "sentence_similarity", "vocabulary_wealth"
+        ]].copy()
+        lyrics = lyrics.dropna(subset=["track_id"])
         lyrics = self._clean_nulls_and_nans(lyrics)
 
         # Join audio + lyrics on track_id
-        df = audio.join(lyrics, "track_id", "left")
+        df = audio.merge(lyrics, on="track_id", how="left")
         df = df.fillna(0)
 
-        logger.info(f"Combined features for {df.count()} tracks")
+        logger.info(f"Combined features for {len(df)} tracks")
 
         return df
 
     def run(
         self,
-        raw_tracks: DataFrame,
-        raw_artists: DataFrame,
-        raw_albums: DataFrame,
-        raw_audio: DataFrame,
-        raw_lyrics: DataFrame,
-    ) -> tuple[DataFrame, DataFrame, DataFrame, DataFrame]:
+        raw_tracks: pd.DataFrame,
+        raw_artists: pd.DataFrame,
+        raw_albums: pd.DataFrame,
+        raw_audio: pd.DataFrame,
+        raw_lyrics: pd.DataFrame,
+    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Process all raw data and save to processed stage."""
         logger.info("=" * 60)
         logger.info("PROCESSED STAGE: Cleaning & Validating Data")
         logger.info("=" * 60)
 
         artists = self.process_artists(raw_artists)
-        logger.info(f"Saving {artists.count()} artists")
-        artists.write.mode("overwrite").parquet(str(PROCESSED_ARTISTS))
+        logger.info(f"Saving {len(artists)} artists")
+        artists.to_parquet(PROCESSED_ARTISTS, engine="pyarrow", index=False)
 
         albums = self.process_albums(raw_albums)
-        logger.info(f"Saving {albums.count()} albums")
-        albums.write.mode("overwrite").parquet(str(PROCESSED_ALBUMS))
+        logger.info(f"Saving {len(albums)} albums")
+        albums.to_parquet(PROCESSED_ALBUMS, engine="pyarrow", index=False)
 
         tracks = self.process_tracks(raw_tracks)
-        logger.info(f"Saving {tracks.count()} tracks")
-        tracks.write.mode("overwrite").parquet(str(PROCESSED_TRACKS))
+        logger.info(f"Saving {len(tracks)} tracks")
+        tracks.to_parquet(PROCESSED_TRACKS, engine="pyarrow", index=False)
 
         track_features = self.process_track_features(raw_audio, raw_lyrics)
-        logger.info(f"Saving {track_features.count()} track features")
-        track_features.write.mode("overwrite").parquet(
-            str(PROCESSED_TRACK_FEATURES)
+        logger.info(f"Saving {len(track_features)} track features")
+        track_features.to_parquet(
+            PROCESSED_TRACK_FEATURES, engine="pyarrow", index=False
         )
 
         logger.info("Processed stage completed successfully")

@@ -39,7 +39,7 @@ format:
 db-setup:
 	bash scripts/setup_db.sh
 
-## Run full ETL pipeline: raw -> processed -> analytics -> PostgreSQL
+## Run full ETL pipeline: raw -> processed -> analytics -> PostgreSQL (Pandas + PyArrow)
 .PHONY: etl
 etl:
 	$(PYTHON_INTERPRETER) -m soeSpotify.main

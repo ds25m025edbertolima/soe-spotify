@@ -47,17 +47,5 @@ DATABASE_URL = os.getenv(
     "postgresql://postgres:postgres@localhost:5432/soe_spotify"
 )
 
-# Spark configuration
-SPARK_MASTER = "local[*]"
-SPARK_APP_NAME = "soe-spotify-etl"
-SPARK_LOG_LEVEL = "WARN"
-
-# JVM options for Java compatibility
-SPARK_DRIVER_JAVA_OPTIONS = (
-    "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED "
-    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED "
-    "--add-opens=java.base/sun.security.action=ALL-UNNAMED"
-)
-
 # ETL batch size for database writes
 DB_BATCH_SIZE = 1000

@@ -1,6 +1,6 @@
 # Data Architecture: Processing Stages
 
-This project uses a **three-stage data pipeline** with Spark and Supabase PostgreSQL.
+This project uses a **three-stage data pipeline** with Pandas + PyArrow and Supabase PostgreSQL.
 
 ## Processing Stages
 
