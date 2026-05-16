@@ -2,8 +2,8 @@ import logging
 import sys
 from typing import Optional
 
-from soe_spotify.etl import SpotifyETL
-from soe_spotify.firebase_loader import FirebaseLoader
+from .etl import SpotifyETL
+from .database import DatabaseLoader
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_etl_pipeline(
-    load_to_firebase: bool = True,
+    load_to_database: bool = True,
     skip_delete: bool = False,
 ) -> None:
     etl = SpotifyETL()
@@ -24,20 +24,20 @@ def run_etl_pipeline(
 
         tracks, artists, albums = etl.run_full_etl()
 
-        if load_to_firebase:
-            logger.info("Initializing Firebase loader...")
-            loader = FirebaseLoader()
+        if load_to_database:
+            logger.info("Initializing database loader...")
+            loader = DatabaseLoader()
 
             if not skip_delete:
-                logger.info("Clearing existing Firestore collections...")
-                loader.delete_collection("tracks")
-                loader.delete_collection("artists")
-                loader.delete_collection("albums")
+                logger.info("Clearing existing database tables...")
+                loader.clear_table("tracks")
+                loader.clear_table("artists")
+                loader.clear_table("albums")
 
-            logger.info("Loading data to Firestore...")
-            loader.load_tracks(tracks)
+            logger.info("Loading data to database...")
             loader.load_artists(artists)
             loader.load_albums(albums)
+            loader.load_tracks(tracks)
 
             logger.info("Verifying loaded data...")
             loader.verify_collection("tracks")
@@ -58,22 +58,22 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Run Spotify ETL pipeline with Spark and Firebase"
+        description="Run Spotify ETL pipeline with Spark and PostgreSQL"
     )
     parser.add_argument(
-        "--no-firebase",
+        "--no-database",
         action="store_true",
-        help="Skip loading to Firebase (for testing)",
+        help="Skip loading to database (for testing)",
     )
     parser.add_argument(
         "--skip-delete",
         action="store_true",
-        help="Skip deleting existing Firestore collections",
+        help="Skip deleting existing database tables",
     )
 
     args = parser.parse_args()
 
     run_etl_pipeline(
-        load_to_firebase=not args.no_firebase,
+        load_to_database=not args.no_database,
         skip_delete=args.skip_delete,
     )

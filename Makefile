@@ -39,20 +39,25 @@ format:
 	ruff check --fix
 	ruff format
 
-## Run ETL pipeline (extract, transform, load to Firebase)
+## Set up local PostgreSQL database with Docker
+.PHONY: db-setup
+db-setup:
+	bash scripts/setup_db.sh
+
+## Run ETL pipeline (extract, transform, load to PostgreSQL)
 .PHONY: etl
 etl:
-	$(PYTHON_INTERPRETER) -m soe_spotify.main
+	$(PYTHON_INTERPRETER) -m soeSpotify.main
 
-## Run ETL pipeline without loading to Firebase (for testing)
+## Run ETL pipeline without loading to database (for testing)
 .PHONY: etl-dry-run
 etl-dry-run:
-	$(PYTHON_INTERPRETER) -m soe_spotify.main --no-firebase
+	$(PYTHON_INTERPRETER) -m soeSpotify.main --no-database
 
-## Run ETL pipeline without deleting existing Firestore data
+## Run ETL pipeline without deleting existing database data
 .PHONY: etl-append
 etl-append:
-	$(PYTHON_INTERPRETER) -m soe_spotify.main --skip-delete
+	$(PYTHON_INTERPRETER) -m soeSpotify.main --skip-delete
 
 
 

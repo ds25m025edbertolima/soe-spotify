@@ -12,7 +12,9 @@ scikit-learn
 pyspark
 seaborn
 pyarrow
-sklearn
+scikit-learn
 yellowbrick
-firebase-admin
+sqlalchemy>=2.0
+psycopg[binary]>=3.1
+alembic
 -e .

@@ -14,10 +14,11 @@ from pyspark.sql.functions import (
     struct,
 )
 
-from soe_spotify.config import (
+from .config import (
     SPARK_MASTER,
     SPARK_APP_NAME,
     SPARK_LOG_LEVEL,
+    SPARK_DRIVER_JAVA_OPTIONS,
     CSV_ALBUMS,
     CSV_ARTISTS,
     CSV_TRACKS,
@@ -37,6 +38,8 @@ class SpotifyETL:
             SparkSession.builder.master(SPARK_MASTER)
             .appName(SPARK_APP_NAME)
             .config("spark.sql.legacy.timeParserPolicy", "LEGACY")
+            .config("spark.driver.extraJavaOptions", SPARK_DRIVER_JAVA_OPTIONS)
+            .config("spark.executor.extraJavaOptions", SPARK_DRIVER_JAVA_OPTIONS)
             .getOrCreate()
         )
         spark.sparkContext.setLogLevel(SPARK_LOG_LEVEL)
@@ -102,35 +105,49 @@ class SpotifyETL:
         return df
 
     def transform_tracks(self, df: DataFrame) -> DataFrame:
-        df = df.select(
-            col("id").alias("track_id"),
-            col("name").alias("track_name"),
-            col("album_id"),
-            col("artists_id"),
-            col("popularity"),
-            col("duration_ms"),
-            col("explicit").cast("boolean"),
-            col("country"),
-            col("playlist"),
-            col("acousticness"),
-            col("danceability"),
-            col("energy"),
-            col("instrumentalness"),
-            col("key"),
-            col("liveness"),
-            col("loudness"),
-            col("mode"),
-            col("speechiness"),
-            col("tempo"),
-            col("time_signature"),
-            col("valence"),
-            col("uri"),
-            col("preview_url"),
-            col("analysis_url"),
-            col("href"),
-            col("track_href"),
-            col("available_markets"),
-        )
+        # Define columns to select with their aliases
+        cols_specs = [
+            ("id", "track_id"),
+            ("name", "track_name"),
+            ("album_id", None),
+            ("artists_id", None),
+            ("popularity", None),
+            ("duration_ms", None),
+            ("explicit", None),
+            ("country", None),
+            ("playlist", None),
+            ("acousticness", None),
+            ("danceability", None),
+            ("energy", None),
+            ("instrumentalness", None),
+            ("key", None),
+            ("liveness", None),
+            ("loudness", None),
+            ("mode", None),
+            ("speechiness", None),
+            ("tempo", None),
+            ("time_signature", None),
+            ("valence", None),
+            ("uri", None),
+            ("preview_url", None),
+            ("analysis_url", None),
+            ("href", None),
+            ("track_href", None),
+            ("available_markets", None),
+        ]
+
+        # Select only columns that exist, applying casts and aliases
+        selections = []
+        for source, alias in cols_specs:
+            if source in df.columns:
+                c = col(source)
+                if source == "explicit":
+                    c = c.cast("boolean")
+                if alias:
+                    c = c.alias(alias)
+                selections.append(c)
+
+        df = df.select(*selections)
         df = df.filter(col("track_id").isNotNull())
         logger.info("Transformed tracks")
         return df
@@ -161,6 +178,11 @@ class SpotifyETL:
     def join_track_features(
         self, tracks: DataFrame, audio: DataFrame, lyrics: DataFrame
     ) -> DataFrame:
+        # Drop popularity from audio if it exists to avoid conflict with track
+        # popularity
+        audio_cols = [c for c in audio.columns if c != "popularity"]
+        audio = audio.select(*audio_cols)
+
         df = (
             tracks.join(audio, "track_id", "left")
             .join(lyrics, "track_id", "left")
@@ -172,14 +194,29 @@ class SpotifyETL:
     def join_with_artists(
         self, tracks: DataFrame, artists: DataFrame
     ) -> DataFrame:
-        df = tracks.join(artists, "artist_id", "left")
+        # Rename all artist columns to avoid conflicts with track columns
+        artist_cols = {c: f"artist_{c}" for c in artists.columns}
+        artists_renamed = artists.select(
+            [col(c).alias(artist_cols[c]) for c in artists.columns]
+        )
+        df = tracks.join(
+            artists_renamed,
+            tracks["artists_id"] == artists_renamed["artist_artist_id"],
+            "left",
+        )
         logger.info(f"Joined with artists: {df.count()} rows")
         return df
 
     def join_with_albums(
         self, tracks: DataFrame, albums: DataFrame
     ) -> DataFrame:
-        df = tracks.join(albums, "album_id", "left")
+        # Rename all album columns except album_id to avoid conflicts
+        album_cols = {c: f"album_{c}" for c in albums.columns if c != "album_id"}
+        renames = [(c, album_cols[c]) if c in album_cols else c for c in albums.columns]
+        albums_renamed = albums.select(
+            [col(c).alias(album_cols.get(c, c)) for c in albums.columns]
+        )
+        df = tracks.join(albums_renamed, "album_id", "left")
         logger.info(f"Joined with albums: {df.count()} rows")
         return df
 

@@ -3,7 +3,7 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "soe-spotify"
+name = "soeSpotify"
 version = "0.0.1"
 description = "A study case that recommends a list of songs users are most likely to want to hear next based on one or more previously played (selected) songs."
 authors = [
@@ -20,13 +20,17 @@ requires-python = "~=3.14.0"
 
 [tool.ruff]
 line-length = 99
-src = ["soe-spotify"]
-include = ["pyproject.toml", "soe-spotify/**/*.py"]
+src = ["soeSpotify"]
+include = ["pyproject.toml", "soeSpotify/**/*.py"]
 
 [tool.ruff.lint]
 extend-select = ["I"]  # Add import sorting
 
 [tool.ruff.lint.isort]
-known-first-party = ["soe-spotify"]
+known-first-party = ["soeSpotify"]
 force-sort-within-sections = true
+
+[tool.flit.module]
+name = "soeSpotify"
+path = "soeSpotify"
 

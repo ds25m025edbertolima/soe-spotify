@@ -16,21 +16,28 @@ CSV_AUDIO_FEATURES = DATA_RAW / "Features Extracted" / (
 )
 CSV_LYRICS_FEATURES = DATA_RAW / "Features Extracted" / "lyrics_features.csv"
 
-# Firebase configuration
-FIREBASE_CREDENTIALS = PROJECT_ROOT / (
-    "fhtw-soe-firebase-adminsdk-fbsvc-5a77ac938f.json"
+# Supabase/PostgreSQL configuration
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:postgres@localhost:5432/soe_spotify"
 )
-FIREBASE_STORAGE_BUCKET = "soe-music-recommender.appspot.com"
 
-# Firestore collections
-COLLECTION_TRACKS = "tracks"
-COLLECTION_ARTISTS = "artists"
-COLLECTION_ALBUMS = "albums"
+# Database tables
+TABLE_TRACKS = "tracks"
+TABLE_ARTISTS = "artists"
+TABLE_ALBUMS = "albums"
 
 # Spark configuration
 SPARK_MASTER = "local[*]"
 SPARK_APP_NAME = "soe-spotify-etl"
 SPARK_LOG_LEVEL = "WARN"
 
-# ETL batch size for Firestore writes
-FIRESTORE_BATCH_SIZE = 500
+# JVM options for Java compatibility
+SPARK_DRIVER_JAVA_OPTIONS = (
+    "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED "
+    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED "
+    "--add-opens=java.base/sun.security.action=ALL-UNNAMED"
+)
+
+# ETL batch size for database writes
+DB_BATCH_SIZE = 1000
