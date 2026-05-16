@@ -1,7 +1,7 @@
 import logging
 
+import pandas as pd
 from sqlalchemy import create_engine, text
-from pyspark.sql import DataFrame
 
 from .config import DATABASE_URL, DB_BATCH_SIZE
 
@@ -22,15 +22,14 @@ class DatabaseLoader:
 
     def load_dataframe_to_postgres(
         self,
-        df: DataFrame,
+        df: pd.DataFrame,
         table_name: str,
     ) -> None:
-        """Load Spark DataFrame to PostgreSQL table."""
-        logger.info(f"Loading {df.count()} rows to {table_name}")
+        """Load Pandas DataFrame to PostgreSQL table."""
+        logger.info(f"Loading {len(df)} rows to {table_name}")
 
-        # Convert to Pandas and write to PostgreSQL
-        pdf = df.toPandas()
-        pdf.to_sql(
+        # Write Pandas DataFrame to PostgreSQL
+        df.to_sql(
             table_name,
             self.engine,
             if_exists="replace",
@@ -38,7 +37,7 @@ class DatabaseLoader:
             method="multi",
             chunksize=DB_BATCH_SIZE,
         )
-        logger.info(f"Loaded {len(pdf)} rows to {table_name}")
+        logger.info(f"Loaded {len(df)} rows to {table_name}")
 
     def create_base_views(self) -> None:
         """Create base views on analytics tables."""
@@ -195,11 +194,11 @@ class DatabaseLoader:
 
     def run(
         self,
-        artists: DataFrame,
-        albums: DataFrame,
-        tracks: DataFrame,
-        genres: DataFrame,
-        features: DataFrame,
+        artists: pd.DataFrame,
+        albums: pd.DataFrame,
+        tracks: pd.DataFrame,
+        genres: pd.DataFrame,
+        features: pd.DataFrame,
     ) -> None:
         """Load all analytics data and create views."""
         logger.info("=" * 60)
