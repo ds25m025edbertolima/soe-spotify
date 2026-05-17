@@ -1,8 +1,11 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Project paths
 PROJECT_ROOT = Path(__file__).parent.parent
+load_dotenv(PROJECT_ROOT / ".env", override=True)
+
 DATA_ROOT = PROJECT_ROOT / "data"
 
 # Raw data sources (CSV files - immutable)

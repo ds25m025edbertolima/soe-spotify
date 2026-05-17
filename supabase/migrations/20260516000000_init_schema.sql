@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS albums (
     uri TEXT,
     artist_id TEXT REFERENCES artists(artist_id),
     artist_name TEXT,
+    artist_followers INTEGER,
     artist_popularity INTEGER
 );
 
@@ -78,6 +79,7 @@ CREATE TABLE IF NOT EXISTS track_features (
     energy FLOAT,
     instrumentalness FLOAT,
     key INTEGER,
+    liveness FLOAT,
     loudness FLOAT,
     mode INTEGER,
     speechiness FLOAT,
@@ -170,7 +172,7 @@ SELECT tr.track_id,
        tf.speechiness,
        tf.acousticness,
        tf.instrumentalness,
-       tf.liveness,
+       tr.liveness,
        tf.valence,
        tf.tempo,
        tr.duration_ms,

@@ -33,6 +33,10 @@ class AnalyticsStage:
             "artist_id", "artist_name", "artist_popularity", "followers", "type",
             "genres"
         ]].copy()
+        
+        # Ensure correct types
+        df["artist_popularity"] = df["artist_popularity"].fillna(0).astype("int64")
+        df["followers"] = df["followers"].fillna(0).astype("int64")
 
         return df
 
@@ -42,6 +46,12 @@ class AnalyticsStage:
         """Create denormalized albums table with artist info."""
         logger.info("Building analytics albums table...")
 
+        # FILTER: Only keep albums that reference an existing artist (Foreign Key constraint)
+        valid_artist_ids = artists["artist_id"].unique()
+        df_albums = albums[albums["artist_id"].isin(valid_artist_ids)].copy()
+        
+        logger.info(f"Filtered albums: {len(df_albums)}/{len(albums)} reference valid artists")
+
         # Prepare artist columns with prefix to avoid conflicts
         artists_cols = artists.copy()
         artists_cols = artists_cols.rename(
@@ -49,7 +59,7 @@ class AnalyticsStage:
         )
 
         # Join albums with artists
-        df = albums.merge(
+        df = df_albums.merge(
             artists_cols,
             left_on="artist_id",
             right_on="artist_artist_id",
@@ -69,6 +79,11 @@ class AnalyticsStage:
                 "artist_artist_popularity": "artist_popularity",
             }
         )
+        
+        # Ensure correct types for database sync
+        df["total_tracks"] = df["total_tracks"].fillna(0).astype("int64")
+        df["artist_followers"] = df["artist_followers"].fillna(0).astype("int64")
+        df["artist_popularity"] = df["artist_popularity"].fillna(0).astype("int64")
 
         return df
 
@@ -82,8 +97,19 @@ class AnalyticsStage:
         """Create denormalized tracks table with full context."""
         logger.info("Building analytics tracks table...")
 
+        # FILTER: Only keep tracks that reference valid artists AND valid albums
+        valid_artist_ids = artists["artist_id"].unique()
+        valid_album_ids = albums["album_id"].unique()
+        
+        df_tracks = tracks[
+            (tracks["artists_id"].isin(valid_artist_ids)) & 
+            (tracks["album_id"].isin(valid_album_ids))
+        ].copy()
+        
+        logger.info(f"Filtered tracks: {len(df_tracks)}/{len(tracks)} have valid references")
+
         # Join tracks with features
-        df = tracks.merge(features, on="track_id", how="left")
+        df = df_tracks.merge(features, on="track_id", how="left")
 
         # Join with artists
         artists_cols = artists.copy()
@@ -138,6 +164,16 @@ class AnalyticsStage:
                 "artist_genres": "genres",
             }
         )
+        
+        # Ensure correct types
+        df["track_popularity"] = df["track_popularity"].fillna(0).astype("int64")
+        df["duration_ms"] = df["duration_ms"].fillna(0).astype("int64")
+        df["artist_popularity"] = df["artist_popularity"].fillna(0).astype("int64")
+        df["artist_followers"] = df["artist_followers"].fillna(0).astype("int64")
+        
+        # Fix explicit boolean type
+        if "explicit" in df.columns:
+            df["explicit"] = df["explicit"].fillna(False).astype(bool)
 
         return df
 
@@ -177,6 +213,10 @@ class AnalyticsStage:
                     })
 
         df = pd.DataFrame(genres_list)
+        
+        # FILTER: Only keep genres for valid artists
+        valid_artist_ids = artists["artist_id"].unique()
+        df = df[df["artist_id"].isin(valid_artist_ids)].copy()
 
         logger.info(f"Created {len(df)} genre mappings")
 
@@ -216,9 +256,12 @@ class AnalyticsStage:
             df = df_audio
 
         df = df.fillna(0)
+        
+        # FILTER: Only keep features for valid tracks (Foreign Key constraint)
+        valid_track_ids = tracks["track_id"].unique()
+        df = df[df["track_id"].isin(valid_track_ids)].copy()
 
-        logger.info(f"Analytics features: {len(df)} rows, {len(df.columns)} "
-                    "columns")
+        logger.info(f"Analytics features: {len(df)} rows, {len(df.columns)} columns")
 
         return df
 

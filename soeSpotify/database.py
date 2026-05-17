@@ -12,6 +12,14 @@ class DatabaseLoader:
     """Load analytics parquet data to PostgreSQL and create views."""
 
     def __init__(self, database_url: str = DATABASE_URL) -> None:
+        # Ensure we have encoding parameters to avoid UnicodeDecodeErrors 
+        # from local servers with non-English locales.
+        if "?" in database_url:
+            if "client_encoding" not in database_url:
+                database_url += "&client_encoding=utf8"
+        else:
+            database_url += "?client_encoding=utf8"
+            
         self.engine = create_engine(
             database_url,
             echo=False,
@@ -39,15 +47,15 @@ class DatabaseLoader:
         )
         logger.info(f"Loaded {len(df)} rows to {table_name}")
 
-    def truncate_tables(self) -> None:
-        """Truncate all analytics tables in correct order."""
-        logger.info("Truncating tables...")
+    def drop_tables(self) -> None:
+        """Drop all analytics tables to ensure clean schema recreation."""
+        logger.info("Dropping existing tables for schema parity...")
         tables = ["genres", "track_features", "tracks", "albums", "artists"]
         with self.engine.connect() as conn:
             for table in tables:
-                conn.execute(text(f"TRUNCATE TABLE {table} CASCADE"))
+                conn.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
             conn.commit()
-        logger.info("Tables truncated")
+        logger.info("Tables dropped")
 
     def create_schema(self) -> None:
         """Create home schema if it doesn't exist."""
@@ -56,6 +64,113 @@ class DatabaseLoader:
             conn.execute(text("CREATE SCHEMA IF NOT EXISTS home"))
             conn.commit()
         logger.info("Schema 'home' ready")
+
+    def create_tables(self) -> None:
+        """Create analytics tables if they don't exist, matching migrations."""
+        logger.info("Creating tables if missing...")
+        
+        tables_sql = """
+        -- 1. Artists Table
+        CREATE TABLE IF NOT EXISTS artists (
+            artist_id TEXT PRIMARY KEY,
+            artist_name TEXT,
+            artist_popularity INTEGER,
+            followers INTEGER,
+            type TEXT,
+            genres TEXT
+        );
+
+        -- 2. Albums Table
+        CREATE TABLE IF NOT EXISTS albums (
+            album_id TEXT PRIMARY KEY,
+            album_name TEXT,
+            album_type TEXT,
+            release_date TEXT,
+            total_tracks INTEGER,
+            uri TEXT,
+            artist_id TEXT REFERENCES artists(artist_id),
+            artist_name TEXT,
+            artist_followers INTEGER,
+            artist_popularity INTEGER
+        );
+
+        -- 3. Tracks Table
+        CREATE TABLE IF NOT EXISTS tracks (
+            track_id TEXT PRIMARY KEY,
+            track_name TEXT,
+            track_popularity INTEGER,
+            duration_ms INTEGER,
+            explicit BOOLEAN,
+            preview_url TEXT,
+            uri TEXT,
+            album_id TEXT REFERENCES albums(album_id),
+            album_name TEXT,
+            album_type TEXT,
+            release_date TEXT,
+            artists_id TEXT REFERENCES artists(artist_id),
+            artist_name TEXT,
+            artist_popularity INTEGER,
+            artist_followers INTEGER,
+            genres TEXT,
+            acousticness FLOAT,
+            danceability FLOAT,
+            energy FLOAT,
+            instrumentalness FLOAT,
+            key INTEGER,
+            liveness FLOAT,
+            loudness FLOAT,
+            mode INTEGER,
+            speechiness FLOAT,
+            tempo FLOAT,
+            time_signature INTEGER,
+            valence FLOAT,
+            mean_syllables_word FLOAT,
+            mean_words_sentence FLOAT,
+            n_sentences FLOAT,
+            n_words FLOAT,
+            sentence_similarity FLOAT,
+            vocabulary_wealth FLOAT
+        );
+
+        -- 4. Genres Table
+        CREATE TABLE IF NOT EXISTS genres (
+            id SERIAL PRIMARY KEY,
+            artist_id TEXT REFERENCES artists(artist_id),
+            artist_name TEXT,
+            genre TEXT
+        );
+
+        -- 5. Track Features Table
+        CREATE TABLE IF NOT EXISTS track_features (
+            track_id TEXT PRIMARY KEY REFERENCES tracks(track_id),
+            acousticness FLOAT,
+            danceability FLOAT,
+            energy FLOAT,
+            instrumentalness FLOAT,
+            key INTEGER,
+            liveness FLOAT,
+            loudness FLOAT,
+            mode INTEGER,
+            speechiness FLOAT,
+            tempo FLOAT,
+            time_signature INTEGER,
+            valence FLOAT,
+            mean_syllables_word FLOAT,
+            mean_words_sentence FLOAT,
+            n_sentences FLOAT,
+            n_words FLOAT,
+            sentence_similarity FLOAT,
+            vocabulary_wealth FLOAT
+        );
+        """
+        
+        with self.engine.connect() as conn:
+            for statement in tables_sql.split(";"):
+                if statement.strip():
+                    conn.execute(text(statement))
+            conn.commit()
+            
+        logger.info("Tables checked/created")
 
     def create_base_views(self) -> None:
         """Create base views on analytics tables with explicit public schema reference."""
@@ -119,7 +234,7 @@ class DatabaseLoader:
         CREATE OR REPLACE VIEW home.v_3_1_track_features_full AS
         SELECT tr.track_id, tr.artist_name, tr.album_name, tr.track_name,
                tr.track_popularity, tf.danceability, tf.energy, tf.loudness,
-               tf.speechiness, tf.acousticness, tf.instrumentalness, tf.liveness,
+               tf.speechiness, tf.acousticness, tf.instrumentalness, tr.liveness,
                tf.valence, tf.tempo, tr.duration_ms, tf.time_signature, tf.key, tf.mode
         FROM home.tracks tr
         LEFT JOIN home.track_features tf ON tr.track_id = tf.track_id;
@@ -165,19 +280,14 @@ class DatabaseLoader:
         logger.info("DATABASE SYNC: Loading Analytics → PostgreSQL")
         logger.info("=" * 60)
 
-        # 1. Truncate existing data (preserving table structures/PKs/FKs)
-        try:
-            self.truncate_tables()
-        except Exception as e:
-            logger.warning(f"Truncate failed (tables might not exist yet): {e}")
-            logger.info("Creating schema and views first...")
-
-        # 2. Ensure schema and views exist (in case they were dropped)
+        # 1. Force a clean start to ensure schema parity with migrations
+        self.drop_tables()
         self.create_schema()
+        self.create_tables()
         self.create_base_views()
         self.create_analysis_views()
 
-        # 3. Load data using append
+        # 2. Load data using append
         self.load_dataframe_to_postgres(artists, "artists")
         self.load_dataframe_to_postgres(albums, "albums")
         self.load_dataframe_to_postgres(tracks, "tracks")

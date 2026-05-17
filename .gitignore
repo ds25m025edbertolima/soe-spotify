@@ -157,6 +157,12 @@ venv.bak/
 *-adminsdk-*.json
 fhtw-soe-ad96b7577ca1.json
 prod-ca-2021.crt
+
+CLAUDE.md
+GEMINI.md
+PROJECT_STRUCTURE_AUDIT.md
+QUICKSTART.md
+
 # Spyder project settings
 .spyderproject
 .spyproject
