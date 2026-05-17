@@ -34,5 +34,9 @@ print(f"Tracks with both:         {tracks_with_both}")
 # Check first few tracks artists_id vs artist_id
 print("\nSample Track Artists IDs:")
 print(df_tracks["artists_id"].head().tolist())
+
+print("\nSample Album Artist IDs:")
+print(df_albums["artist_id"].head().tolist())
+
 print("\nSample Artist IDs:")
 print(df_artists["artist_id"].head().tolist())

@@ -1,6 +1,7 @@
 # Data
 /data/
 
+/99-Archive/
 # Mac OS-specific storage files
 .DS_Store
 

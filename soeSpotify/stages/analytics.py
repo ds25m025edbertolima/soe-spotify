@@ -97,19 +97,28 @@ class AnalyticsStage:
         """Create denormalized tracks table with full context."""
         logger.info("Building analytics tracks table...")
 
+        # Create a copy to avoid side effects on the input dataframe
+        df_base = tracks.copy()
+
+        # CLEAN: artists_id is often "['ID']", extract the first one safely
+        # Only extract if it looks like a string representation of a list
+        is_list_format = df_base["artists_id"].str.contains(r"\[", na=False)
+        if is_list_format.any():
+            df_base.loc[is_list_format, "artists_id"] = df_base.loc[is_list_format, "artists_id"].str.extract(r"'(.*?)'")[0]
+
         # FILTER: Only keep tracks that reference valid artists AND valid albums
         valid_artist_ids = artists["artist_id"].unique()
         valid_album_ids = albums["album_id"].unique()
         
-        df_tracks = tracks[
-            (tracks["artists_id"].isin(valid_artist_ids)) & 
-            (tracks["album_id"].isin(valid_album_ids))
+        df_tracks_filtered = df_base[
+            (df_base["artists_id"].isin(valid_artist_ids)) & 
+            (df_base["album_id"].isin(valid_album_ids))
         ].copy()
         
-        logger.info(f"Filtered tracks: {len(df_tracks)}/{len(tracks)} have valid references")
+        logger.info(f"Filtered tracks: {len(df_tracks_filtered)}/{len(tracks)} have valid references")
 
         # Join tracks with features
-        df = df_tracks.merge(features, on="track_id", how="left")
+        df = df_tracks_filtered.merge(features, on="track_id", how="left")
 
         # Join with artists
         artists_cols = artists.copy()
