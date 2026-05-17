@@ -146,7 +146,7 @@ class AnalyticsStage:
 
         # Select final columns
         final_cols = [
-            "track_id", "track_name", "popularity", "duration_ms", "explicit",
+            "track_id", "track_name", "popularity", "duration_ms",
             "preview_url", "uri", "album_id", "album_album_name", "album_album_type",
             "album_release_date", "artists_id", "artist_artist_name",
             "artist_artist_popularity", "artist_followers", "artist_genres",
@@ -180,9 +180,10 @@ class AnalyticsStage:
         df["artist_popularity"] = df["artist_popularity"].fillna(0).astype("int64")
         df["artist_followers"] = df["artist_followers"].fillna(0).astype("int64")
         
-        # Fix explicit boolean type
-        if "explicit" in df.columns:
-            df["explicit"] = df["explicit"].fillna(False).astype(bool)
+        # Audio feature integers
+        for col in ["key", "mode", "time_signature"]:
+            if col in df.columns:
+                df[col] = df[col].fillna(0).astype("int64")
 
         return df
 
@@ -269,6 +270,11 @@ class AnalyticsStage:
         # FILTER: Only keep features for valid tracks (Foreign Key constraint)
         valid_track_ids = tracks["track_id"].unique()
         df = df[df["track_id"].isin(valid_track_ids)].copy()
+        
+        # Ensure correct types for audio feature integers
+        for col in ["key", "mode", "time_signature"]:
+            if col in df.columns:
+                df[col] = df[col].fillna(0).astype("int64")
 
         logger.info(f"Analytics features: {len(df)} rows, {len(df.columns)} columns")
 
@@ -292,17 +298,17 @@ class AnalyticsStage:
             ANALYTICS_ARTISTS, engine="pyarrow", index=False
         )
 
-        analytics_albums = self.build_analytics_albums(albums, artists)
+        analytics_albums = self.build_analytics_albums(albums, analytics_artists)
         logger.info(f"Saving {len(analytics_albums)} analytics albums")
         analytics_albums.to_parquet(ANALYTICS_ALBUMS, engine="pyarrow", index=False)
 
         analytics_tracks = self.build_analytics_tracks(
-            tracks, artists, albums, features
+            tracks, analytics_artists, analytics_albums, features
         )
         logger.info(f"Saving {len(analytics_tracks)} analytics tracks")
         analytics_tracks.to_parquet(ANALYTICS_TRACKS, engine="pyarrow", index=False)
 
-        analytics_genres = self.build_analytics_genres(artists)
+        analytics_genres = self.build_analytics_genres(analytics_artists)
         logger.info(f"Saving {len(analytics_genres)} analytics genres")
         analytics_genres.to_parquet(ANALYTICS_GENRES, engine="pyarrow", index=False)
 

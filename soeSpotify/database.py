@@ -100,7 +100,6 @@ class DatabaseLoader:
             track_name TEXT,
             track_popularity INTEGER,
             duration_ms INTEGER,
-            explicit BOOLEAN,
             preview_url TEXT,
             uri TEXT,
             album_id TEXT REFERENCES albums(album_id),
