@@ -1,3 +1,4 @@
+# reads Spotify CSV files and saves each one as a raw Parquet file
 import logging
 from pathlib import Path
 

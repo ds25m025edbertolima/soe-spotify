@@ -1,14 +1,14 @@
-import os
-from pathlib import Path
-from dotenv import load_dotenv
+import os # read environment variables
+from pathlib import Path # create clean file paths
+from dotenv import load_dotenv # load values from a .env file
 
 # Project paths
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent # root folder of your project
 load_dotenv(PROJECT_ROOT / ".env", override=True)
 
 DATA_ROOT = PROJECT_ROOT / "data"
 
-# Raw data sources (CSV files - immutable)
+# Raw data sources (CSV files)
 DATA_RAW = DATA_ROOT / "raw"
 DATA_RAW_SOURCES = DATA_RAW / "SpotGenTrack" / "Data Sources"
 DATA_RAW_FEATURES = DATA_RAW / "SpotGenTrack" / "Features Extracted"
@@ -45,10 +45,7 @@ ANALYTICS_GENRES = DATA_ANALYTICS / "analytics_genres.parquet"
 ANALYTICS_TRACK_FEATURES = DATA_ANALYTICS / "analytics_track_features.parquet"
 
 # Supabase/PostgreSQL configuration
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5432/soe_spotify"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # ETL batch size for database writes
 DB_BATCH_SIZE = 1000

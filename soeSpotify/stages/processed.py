@@ -1,3 +1,9 @@
+# takes the raw Spotify data
+# cleans it
+# validates important IDs
+# removes duplicates
+# combines audio + lyrics features
+# saves the cleaned data as processed Parquet files
 import logging
 
 import pandas as pd
@@ -51,8 +57,7 @@ class ProcessedStage:
         ).copy()
 
         # Keep only needed columns
-        df = df[["artist_id", "artist_name", "artist_popularity", "followers",
-                 "genres", "type"]]
+        df = df[["artist_id", "artist_name", "artist_popularity", "followers", "genres", "type"]]
 
         # Remove nulls in primary key
         df = df.dropna(subset=["artist_id"])
@@ -85,8 +90,7 @@ class ProcessedStage:
         ).copy()
 
         # Keep only needed columns
-        df = df[["album_id", "album_name", "album_type", "artist_id",
-                 "release_date", "release_date_precision", "total_tracks", "uri"]]
+        df = df[["album_id", "album_name", "album_type", "artist_id","release_date", "release_date_precision", "total_tracks", "uri"]]
 
         # Remove nulls in primary key
         df = df.dropna(subset=["album_id"])

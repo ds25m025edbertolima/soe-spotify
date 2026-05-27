@@ -1,3 +1,5 @@
+# takes the cleaned processed data 
+# turns it into final tables that are easier to use in database
 import logging
 
 import pandas as pd

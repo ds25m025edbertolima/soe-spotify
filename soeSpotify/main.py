@@ -1,3 +1,11 @@
+# Sets up logging.
+# Imports all ETL stages.
+# Defines a function called run_etl_pipeline().
+# Runs raw data loading.
+# Runs data cleaning/processing.
+# Runs analytics table creation.
+# Loads results into PostgreSQL.
+
 import logging
 import sys
 

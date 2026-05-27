@@ -1,11 +1,11 @@
 import logging
 
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text # database connection engine + raw SQL statements 
 
 from .config import DATABASE_URL, DB_BATCH_SIZE
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__) # Create a logger for this file
 
 
 class DatabaseLoader:

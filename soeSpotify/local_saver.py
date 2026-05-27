@@ -1,3 +1,4 @@
+# saves the output of ETL pipeline as local files inside the data/processed folder
 import logging
 from pathlib import Path
 

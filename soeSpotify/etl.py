@@ -1,3 +1,11 @@
+# Starts a Spark session.
+# Loads Spotify CSV files.
+# Selects and renames useful columns.
+# Removes rows without important IDs.
+# Joins tracks with audio features and lyrics features.
+# Joins tracks with artist and album information.
+# Returns final enriched track data, artists data, and albums data.
+
 import logging
 from typing import Optional
 
