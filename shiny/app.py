@@ -10,14 +10,22 @@ playlist = [
 
 app_ui = ui.page_fluid(
     ui.h2("My Playlist"),
+
+    ui.h4("Current song"),
     ui.output_text("current_song"),
+
     ui.br(),
+
     ui.input_action_button("thumbs_up", "👍 Thumbs Up"),
     ui.input_action_button("thumbs_down", "👎 Thumbs Down"),
+
     ui.br(),
     ui.br(),
-    ui.output_text("result"),
+
+    ui.h4("My ratings"),
+    ui.output_ui("result"),
 )
+
 
 def server(input, output, session):
     song_index = reactive.Value(0)
@@ -39,7 +47,7 @@ def server(input, output, session):
         index = song_index.get()
 
         if index < len(playlist):
-            current_ratings = ratings.get()
+            current_ratings = ratings.get().copy()
             current_ratings.append((playlist[index], "👍"))
             ratings.set(current_ratings)
             song_index.set(index + 1)
@@ -50,23 +58,27 @@ def server(input, output, session):
         index = song_index.get()
 
         if index < len(playlist):
-            current_ratings = ratings.get()
+            current_ratings = ratings.get().copy()
             current_ratings.append((playlist[index], "👎"))
             ratings.set(current_ratings)
             song_index.set(index + 1)
 
     @output
-    @render.text
+    @render.ui
     def result():
         current_ratings = ratings.get()
 
         if not current_ratings:
-            return "No songs rated yet."
+            return ui.p("Your ratings will appear here.")
 
-        text = "Your ratings:\n"
+        rating_items = []
+
         for song, rating in current_ratings:
-            text += f"{rating} {song}\n"
+            rating_items.append(
+                ui.tags.li(f"{rating} {song}")
+            )
 
-        return text
+        return ui.tags.ul(*rating_items)
+
 
 app = App(app_ui, server)
