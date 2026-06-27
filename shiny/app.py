@@ -89,7 +89,10 @@ df_tracks = df_tracks[df_tracks["track_id"].isin(available_track_ids)].reset_ind
 df_selected_features = df_selected_features.loc[df_selected_features.index.isin(available_track_ids)]
 
 
-
+# Get all information for one specific track.
+# The function receives a track_id and searches df_tracks for the matching row.
+#
+# The returned row contains metadata such as track name, artist name, genre, release year and URL, which are later displayed in the app.
 def get_track_info(track_id):
     row = df_tracks[df_tracks["track_id"] == track_id].iloc[0]
     return row
@@ -99,7 +102,7 @@ def build_initial_rating_queue(selected_genres=None, release_year_range=None):
     """
     Build the first 10 songs that the user will rate.
     The random first song is selected from the filtered pool.
-    Then KNN finds similar songs, and we filter those too.
+    Then KNN finds similar songs and we filter those too.
     """
 
     candidate_pool = df_tracks.copy()
@@ -127,7 +130,7 @@ def build_initial_rating_queue(selected_genres=None, release_year_range=None):
             )
         ].copy()
 
-    # If filters are too strict, stop safely
+    # If filters are too strict, meaning if there are no songs left after applying the filters, return an empty list 
     if candidate_pool.empty:
         return []
 
@@ -173,10 +176,12 @@ def build_initial_rating_queue(selected_genres=None, release_year_range=None):
     except Exception:
         queue = candidate_pool.sample(min(10, len(candidate_pool)))["track_id"].tolist()
 
-    # Remove duplicates while keeping order
+    # Remove duplicates
     queue = list(dict.fromkeys(queue))
 
     # If fewer than 10 songs, fill with random songs from filtered pool
+    # The KNN model may not always return enough songs after applying the genre/year filters. For example, the app starts with one random song and tries to add 9 KNN 
+    # neighbors, but after filtering, maybe only 5 neighbors are left. Then the queue has only 6 songs total. To avoid this, we add random songs (not neighbours) from the filtered list
     if len(queue) < 10:
         extra_needed = 10 - len(queue)
 
@@ -204,8 +209,8 @@ def recommend_final_songs(
 ):
     """
     Recommend final songs based on liked songs.
-    Disliked songs and already rated songs are excluded.
-    Genre and release year filters are applied strictly.
+    Disliked songs are excluded.
+    Genre and release year filters are applied.
     """
 
     if len(liked_track_ids) == 0:
@@ -213,7 +218,7 @@ def recommend_final_songs(
 
     rated_track_ids = set(liked_track_ids + disliked_track_ids)
 
-    # Get many candidates first because filters may remove many songs
+    # Get candidates 
     recs = recommend_selected_neighbors(
         liked_track_ids=liked_track_ids,
         df_tracks=df_tracks,
@@ -228,8 +233,6 @@ def recommend_final_songs(
     recs = recs[~recs["track_id"].isin(rated_track_ids)].copy()
 
     # Add only columns that are not already returned by the recommender
-    # Important: do not merge artist_primary_genre_broad again,
-    # otherwise pandas may create _x and _y columns.
     extra_cols = [
         "track_id",
         "preview_url",
@@ -256,7 +259,7 @@ def recommend_final_songs(
             for g in selected_genres
         ]
 
-    # Apply genre filter strictly
+    # Apply genre filter 
     if selected_genres_clean:
         recs = recs[recs["genre_clean"].isin(selected_genres_clean)].copy()
 
@@ -285,30 +288,8 @@ def reset_app(selected_genres=None, release_year_range=None):
     st.session_state.finished_rating = False
 
 
-# --------------------------------------------------
-# Session state initialization
-# --------------------------------------------------
 
-if "rating_queue" not in st.session_state:
-    reset_app(
-        selected_genres=selected_genres,
-        release_year_range=release_year_range
-    )
-
-
-# --------------------------------------------------
-# Sidebar
-# --------------------------------------------------
-
-st.sidebar.header("App Status")
-
-st.sidebar.write(f"Songs loaded: {len(df_tracks):,}")
-st.sidebar.write(
-    f"Rated songs: "
-    f"{len(st.session_state.liked_tracks) + len(st.session_state.disliked_tracks)} / 10"
-)
-st.sidebar.write(f"Liked: {len(st.session_state.liked_tracks)}")
-st.sidebar.write(f"Disliked: {len(st.session_state.disliked_tracks)}")
+#### Sidebar filters
 
 st.sidebar.header("Recommendation Filters")
 
@@ -345,7 +326,49 @@ else:
     release_year_range = None
     st.sidebar.warning("No valid release year values found.")
 
-if st.sidebar.button("Restart App"):
+
+#### Basic session state initialization
+
+# These variables must be initialized before they are shown in the sidebar.
+# Otherwise Streamlit raises an error because liked_tracks or disliked_tracks
+# do not exist yet.
+if "liked_tracks" not in st.session_state:
+    st.session_state.liked_tracks = []
+
+if "disliked_tracks" not in st.session_state:
+    st.session_state.disliked_tracks = []
+
+if "current_index" not in st.session_state:
+    st.session_state.current_index = 0
+
+if "finished_rating" not in st.session_state:
+    st.session_state.finished_rating = False
+
+
+#### Rating queue initialization
+
+# The rating queue depends on the selected genre and year filters.
+# Therefore, it is created only after the filters exist.
+if "rating_queue" not in st.session_state:
+    reset_app(
+        selected_genres=selected_genres,
+        release_year_range=release_year_range
+    )
+
+
+#### Sidebar status
+
+st.sidebar.header("App Status")
+
+st.sidebar.write(f"Songs loaded: {len(df_tracks):,}")
+st.sidebar.write(
+    f"Rated songs: "
+    f"{len(st.session_state.liked_tracks) + len(st.session_state.disliked_tracks)} / 10"
+)
+st.sidebar.write(f"Liked: {len(st.session_state.liked_tracks)}")
+st.sidebar.write(f"Disliked: {len(st.session_state.disliked_tracks)}")
+
+if st.sidebar.button("Start Recommender"):
     reset_app(
         selected_genres=selected_genres,
         release_year_range=release_year_range
@@ -353,59 +376,70 @@ if st.sidebar.button("Restart App"):
     st.rerun()
 
 
-# --------------------------------------------------
-# Rating phase
-# --------------------------------------------------
+#### Rating phase
 
 if not st.session_state.finished_rating:
 
-    current_index = st.session_state.current_index
-    current_track_id = st.session_state.rating_queue[current_index]
-    current_track = get_track_info(current_track_id)
+    # Safety check in case the selected filters return no songs
+    if len(st.session_state.rating_queue) == 0:
+        st.warning(
+            "No songs are available with the selected filters. "
+            "Please choose a wider year range or fewer genre filters."
+        )
 
-    st.subheader(f"Song {current_index + 1} of 10")
-
-    st.markdown(f"### {current_track['track_name']}")
-    st.write(f"**Artist:** {current_track['artist_name']}")
-
-    if pd.notna(current_track.get("artist_primary_genre_broad")):
-        st.write(f"**Genre:** {current_track['artist_primary_genre_broad']}")
-
-    if pd.notna(current_track.get("release_year")):
-        st.write(f"**Release Year:** {int(current_track['release_year'])}")
-
-    st.audio(current_track["preview_url"])
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("👍 Like", use_container_width=True):
-            st.session_state.liked_tracks.append(current_track_id)
-
-            if st.session_state.current_index < 9:
-                st.session_state.current_index += 1
-            else:
-                st.session_state.finished_rating = True
-
+        if st.button("Restart with new filters"):
+            reset_app(
+                selected_genres=selected_genres,
+                release_year_range=release_year_range
+            )
             st.rerun()
 
-    with col2:
-        if st.button("👎 Dislike", use_container_width=True):
-            st.session_state.disliked_tracks.append(current_track_id)
+    else:
+        current_index = st.session_state.current_index
+        current_track_id = st.session_state.rating_queue[current_index]
+        current_track = get_track_info(current_track_id)
 
-            if st.session_state.current_index < 9:
-                st.session_state.current_index += 1
-            else:
-                st.session_state.finished_rating = True
+        st.subheader(f"Song {current_index + 1} of 10")
 
-            st.rerun()
+        st.markdown(f"### {current_track['track_name']}")
+        st.write(f"**Artist:** {current_track['artist_name']}")
 
-    st.progress((current_index + 1) / 10)
+        if pd.notna(current_track.get("artist_primary_genre_broad")):
+            st.write(f"**Genre:** {current_track['artist_primary_genre_broad']}")
+
+        if pd.notna(current_track.get("release_year")):
+            st.write(f"**Release Year:** {int(current_track['release_year'])}")
+
+        st.audio(current_track["preview_url"])
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("👍 Like", use_container_width=True):
+                st.session_state.liked_tracks.append(current_track_id)
+
+                if st.session_state.current_index < len(st.session_state.rating_queue) - 1:
+                    st.session_state.current_index += 1
+                else:
+                    st.session_state.finished_rating = True
+
+                st.rerun()
+
+        with col2:
+            if st.button("👎 Dislike", use_container_width=True):
+                st.session_state.disliked_tracks.append(current_track_id)
+
+                if st.session_state.current_index < len(st.session_state.rating_queue) - 1:
+                    st.session_state.current_index += 1
+                else:
+                    st.session_state.finished_rating = True
+
+                st.rerun()
+
+        st.progress((current_index + 1) / len(st.session_state.rating_queue))
 
 
-# --------------------------------------------------
-# Recommendation phase
-# --------------------------------------------------
+#### Recommendation phase
 
 else:
     st.subheader("Your Ratings Are Complete")
@@ -418,20 +452,20 @@ else:
 
     if len(liked_track_ids) == 0:
         st.warning(
-            "You disliked all 10 songs, so the app does not have enough positive preference information yet."
+            "You disliked all songs, so the app does not have enough positive preference information yet."
         )
         st.write(
             "For this first version, the recommender needs at least one liked song to build your music profile."
         )
 
         if st.button("Start Again"):
-            reset_app()
+            reset_app(
+                selected_genres=selected_genres,
+                release_year_range=release_year_range
+            )
             st.rerun()
 
     else:
-        # Important:
-        # Do NOT save this in st.session_state.
-        # This way, recommendations update whenever filters change.
         recommendations = recommend_final_songs(
             liked_track_ids=liked_track_ids,
             disliked_track_ids=disliked_track_ids,
@@ -449,10 +483,18 @@ else:
             )
 
             if st.button("Start Again"):
-                reset_app()
+                reset_app(
+                    selected_genres=selected_genres,
+                    release_year_range=release_year_range
+                )
                 st.rerun()
 
         else:
+            st.info(
+                "The distance shows how close a recommended song is to the average sound "
+                "profile of the songs you liked. A smaller distance means the song is more similar."
+            )
+
             for i, row in recommendations.iterrows():
                 st.markdown("---")
                 st.markdown(f"### {i + 1}. {row['track_name']}")
@@ -472,5 +514,8 @@ else:
         st.markdown("---")
 
         if st.button("Start New Recommendation"):
-            reset_app()
+            reset_app(
+                selected_genres=selected_genres,
+                release_year_range=release_year_range
+            )
             st.rerun()
