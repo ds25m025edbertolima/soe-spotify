@@ -1,4 +1,6 @@
 from pathlib import Path
+import pandas as pd
+import joblib
 
 def load_recommender(models_dir=None):
     models_dir = Path(models_dir or Path(__file__).parent)
