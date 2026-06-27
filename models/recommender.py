@@ -1,11 +1,16 @@
 from pathlib import Path
 
+import joblib
+import pandas as pd
+
+
 def load_recommender(models_dir=None):
     models_dir = Path(models_dir or Path(__file__).parent)
     scaler = joblib.load(models_dir / "selected_audio_scaler.joblib")
     knn = joblib.load(models_dir / "selected_audio_knn.joblib")
     feature_matrix = pd.read_pickle(models_dir / "selected_audio_features.pkl")
     return scaler, knn, feature_matrix
+
 
 def recommend_selected_neighbors(
     liked_track_ids,
